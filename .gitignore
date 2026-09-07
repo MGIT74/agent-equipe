@@ -1,0 +1,16 @@
+# Fichiers sensibles — JAMAIS dans le dépôt git
+team_users.json
+team_sessions.json
+.pbkdf2_salt
+*.pid
+*.log
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# OS
+.DS_Store
+Thumbs.db

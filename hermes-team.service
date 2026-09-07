@@ -1,0 +1,49 @@
+# systemd — Service « Agent Équipe »
+# Installez-le sur votre MACHINE HÔTE (pas dans le conteneur) si vous avez
+# déployé l'application hors Docker, pour qu'elle redémarre automatiquement.
+#
+# Installation :
+#   sudo cp hermes-team.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now hermes-team
+#
+# Commandes :
+#   systemctl status hermes-team
+#   journalctl -u hermes-team -f
+
+[Unit]
+Description=Hermes Agent Équipe — application multi-employés
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# ← ADAPTEZ ce chemin à l'emplacement de l'application sur votre hôte
+WorkingDirectory=/opt/team-app
+ExecStart=/usr/bin/python3 /opt/team-app/server.py
+Restart=always
+RestartSec=3
+
+# Utilisateur dédié recommandé (créez-le : sudo useradd -r -s /usr/sbin/nologin teamapp)
+User=teamapp
+Group=teamapp
+
+# Environnement — ← ADAPTEZ
+Environment=TEAM_APP_PORT=8890
+Environment=TEAM_APP_HOST=0.0.0.0
+Environment=TEAM_UPSTREAM_HOST=127.0.0.1
+Environment=TEAM_UPSTREAM_PORT=8787
+# Mot de passe admin initial (uniquement si team_users.json n'existe pas) :
+# Environment=TEAM_ADMIN_PASSWORD=...
+# Mot de passe du WebUI Hermes (obligatoire si l'auth y est activée) :
+# Environment=HERMES_WEBUI_PASSWORD=...
+
+# Sécurité
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/team-app
+
+[Install]
+WantedBy=multi-user.target

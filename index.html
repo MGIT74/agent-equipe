@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agent Équipe — Connexion</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="login-body">
+
+  <main class="login-card">
+    <div class="login-logo">◆</div>
+    <h1>Agent Équipe</h1>
+    <p class="login-sub">Connectez-vous pour discuter avec votre assistant dédié.</p>
+
+    <form id="login-form" autocomplete="off">
+      <label>
+        <span>Identifiant</span>
+        <input type="text" name="username" id="username" placeholder="ex : marie" required />
+      </label>
+      <label>
+        <span>Mot de passe</span>
+        <input type="password" name="password" id="password" placeholder="••••••••" required />
+      </label>
+      <button type="submit" class="btn primary" id="login-btn">Se connecter</button>
+      <p id="login-error" class="login-error" hidden></p>
+    </form>
+  </main>
+
+  <script>
+    const form = document.getElementById("login-form");
+    const errEl = document.getElementById("login-error");
+    const btn = document.getElementById("login-btn");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      errEl.hidden = true;
+      btn.disabled = true;
+      btn.textContent = "Connexion…";
+      try {
+        const res = await fetch("/api/team/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: document.getElementById("username").value.trim(),
+            password: document.getElementById("password").value,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || "Échec de la connexion");
+        }
+        window.location.href = "/app.html";
+      } catch (err) {
+        errEl.textContent = "❌ " + err.message;
+        errEl.hidden = false;
+        btn.disabled = false;
+        btn.textContent = "Se connecter";
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+# Caddyfile — HTTPS automatique pour l'Agent Équipe
+#
+# Caddy gère les certificats TLS automatiquement (Let's Encrypt).
+# Installez Caddy (https://caddyserver.com/docs/install), copiez ce fichier,
+# adaptez le nom de domaine, puis : sudo caddy run --config Caddyfile
+#
+# Prérequis : le DNS de equipe.votre-domaine.fr doit pointer vers ce serveur.
+
+equipe.votre-domaine.fr {
+    # Transmet tout vers l'Agent Équipe
+    reverse_proxy 127.0.0.1:8890
+
+    # Le streaming SSE a besoin de ces options
+    flush_interval -1
+}
+
+# ── Variante : les deux applications derrière un seul domaine ────────────────
+# (WebUI Hermes pour vous, /equipe pour les employés)
+#
+# hermes.votre-domaine.fr {
+#     # Le WebUI principal reste accessible directement
+#     reverse_proxy /equipe/* 127.0.0.1:8890
+#     reverse_proxy 127.0.0.1:8787
+# }

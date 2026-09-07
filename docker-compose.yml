@@ -1,0 +1,45 @@
+# Docker Compose — Agent Équipe (application multi-employés Hermes)
+#
+# À déployer sur le MÊME hôte (ou le même réseau Docker) que votre Hermes.
+# L'application doit pouvoir joindre le WebUI Hermes (port 8787).
+#
+# QUICK START:
+#   1. Récupérez le mot de passe du WebUI Hermes (HERMES_WEBUI_PASSWORD
+#      du conteneur hermes-webui, visible via `docker inspect`).
+#   2. Créez un fichier .env à côté de ce compose :
+#        HERMES_WEBUI_PASSWORD=***
+#        TEAM_ADMIN_PASSWORD=***
+#   3. docker compose up -d
+#   4. Ouvrez http://localhost:8890
+
+services:
+  hermes-team:
+    build: .
+    container_name: hermes-team
+    restart: unless-stopped
+    ports:
+      - "8890:8890"
+    environment:
+      # ── À configurer via .env ──
+      - HERMES_WEBUI_PASSWORD=${HERMES_WEBUI_PASSWORD:?Mettez HERMES_WEBUI_PASSWORD dans .env}
+      - TEAM_ADMIN_PASSWORD=${TEAM_ADMIN_PASSWORD:-changeme}
+      # ── Cible Hermes ──
+      # Si Hermes tourne en Docker sur le même hôte avec le compose officiel,
+      # utilisez le nom du service ; sinon 127.0.0.1 si host network, ou
+      # host.docker.internal sous Docker Desktop.
+      - TEAM_UPSTREAM_HOST=${TEAM_UPSTREAM_HOST:-host.docker.internal}
+      - TEAM_UPSTREAM_PORT=${TEAM_UPSTREAM_PORT:-8787}
+    extra_hosts:
+      # Permet host.docker.internal sur Linux (no-op si déjà défini)
+      - "host.docker.internal:host-gateway"
+    volumes:
+      # Comptes employés + sessions de connexion (persistants)
+      - team-data:/data
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request,sys; sys.exit(0) if b'ok' in urllib.request.urlopen('http://127.0.0.1:8890/health', timeout=3).read() else sys.exit(1)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 5s
+
+volumes:
+  team-data:

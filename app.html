@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agent Équipe</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div class="app-layout">
+
+    <!-- Sidebar : sessions de chat -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-head">
+        <div class="brand">◆ Agent Équipe</div>
+        <div class="who" id="who">…</div>
+      </div>
+      <button class="btn new-chat" id="new-chat-btn">+ Nouveau chat</button>
+      <div class="session-list" id="session-list"></div>
+      <div class="sidebar-foot">
+        <button class="link-btn" id="logout-btn">Déconnexion</button>
+      </div>
+    </aside>
+
+    <!-- Zone principale : conversation -->
+    <main class="chat-main">
+      <header class="chat-head">
+        <button class="burger" id="burger-btn" title="Menu">☰</button>
+        <div class="chat-title" id="chat-title">Nouvelle conversation</div>
+        <div class="status-chip" id="status-chip"></div>
+      </header>
+
+      <div class="messages" id="messages">
+        <div class="empty-state" id="empty-state">
+          <div class="empty-icon">👋</div>
+          <h2>Bonjour !</h2>
+          <p>Posez votre question, votre assistant est prêt.</p>
+        </div>
+      </div>
+
+      <footer class="composer-wrap">
+        <div class="composer">
+          <textarea id="composer" rows="1" placeholder="Écrivez votre message… (Entrée pour envoyer)"
+            ></textarea>
+          <button id="send-btn" class="btn primary send-btn" title="Envoyer">➤</button>
+          <button id="cancel-btn" class="btn danger cancel-btn" title="Annuler" hidden>■</button>
+        </div>
+        <p class="composer-hint">Votre assistant a sa propre mémoire et ses propres outils.</p>
+      </footer>
+    </main>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
