@@ -36,9 +36,20 @@ from urllib.parse import urlparse, parse_qs
 # ── Configuration ─────────────────────────────────────────────────────────────
 UPSTREAM_HOST = os.getenv("TEAM_UPSTREAM_HOST", "127.0.0.1")
 UPSTREAM_PORT = int(os.getenv("TEAM_UPSTREAM_PORT", "8787"))
+# URL complète de l'amont (prioritaire sur host/port) — ex :
+#   TEAM_UPSTREAM_URL=https://hermes.mondomaine.fr   (Coolify/Traefik, HTTPS)
+#   TEAM_UPSTREAM_URL=http://hermes-webui:8787       (réseau Docker interne)
+UPSTREAM_URL = os.getenv("TEAM_UPSTREAM_URL", "").strip().rstrip("/")
 PORT = int(os.getenv("TEAM_APP_PORT", "8890"))
 HOST = os.getenv("TEAM_APP_HOST", "0.0.0.0")
 SESSION_TTL = 86400 * 7  # 7 jours
+
+
+def _upstream_base() -> str:
+    """Base URL de l'amont : URL explicite sinon http://host:port."""
+    if UPSTREAM_URL:
+        return UPSTREAM_URL
+    return f"http://{UPSTREAM_HOST}:{UPSTREAM_PORT}"
 
 BASE_DIR = Path(__file__).resolve().parent
 # En Docker, les données persistantes vont dans /data (volume) ;
@@ -186,7 +197,7 @@ def _upstream_login() -> str | None:
         return ""
     body = json.dumps({"password": password}).encode()
     req = urllib.request.Request(
-        f"http://{UPSTREAM_HOST}:{UPSTREAM_PORT}/api/auth/login",
+        f"{_upstream_base()}/api/auth/login",
         data=body, method="POST",
         headers={"Content-Type": "application/json", "Accept": "application/json"},
     )
@@ -235,7 +246,7 @@ def upstream_request(path: str, method: str = "GET", body: dict | None = None,
                     profile: str = None, raw_body: bytes | None = None,
                     headers: dict | None = None, timeout: int = 60) -> tuple[int, dict, bytes]:
     """Appelle le WebUI Hermes en injectant les cookies (session proxy + profil)."""
-    url = f"http://{UPSTREAM_HOST}:{UPSTREAM_PORT}{path}"
+    url = f"{_upstream_base()}{path}"
     data = None
     hdrs = {"Accept": "application/json"}
     if body is not None:
@@ -278,7 +289,7 @@ def upstream_request(path: str, method: str = "GET", body: dict | None = None,
 def upstream_stream(path: str, profile: str):
     """Ouvre un flux SSE vers le WebUI et retourne la réponse brute."""
     global _UPSTREAM_COOKIE
-    url = f"http://{UPSTREAM_HOST}:{UPSTREAM_PORT}{path}"
+    url = f"{_upstream_base()}{path}"
     cookies = _upstream_cookies(profile)
     if not cookies:
         # Retente le login si jamais fait (ex: démarrage à froid)
@@ -736,7 +747,7 @@ def main():
     server = QuietHTTPServer((HOST, PORT), TeamHandler)
     logger.info("Hermes Team App listening on http://%s:%d (upstream %s:%d)", HOST, PORT, UPSTREAM_HOST, UPSTREAM_PORT)
     print(f"\n  Team App: http://0.0.0.0:{PORT}")
-    print(f"  Upstream: http://{UPSTREAM_HOST}:{UPSTREAM_PORT}\n", flush=True)
+    print(f"  Upstream: {_upstream_base()}\n", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

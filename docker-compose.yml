@@ -22,11 +22,11 @@ services:
     environment:
       # ── À configurer via .env ──
       - HERMES_WEBUI_PASSWORD=${HERMES_WEBUI_PASSWORD:?Mettez HERMES_WEBUI_PASSWORD dans .env}
-      - TEAM_ADMIN_PASSWORD=${TEAM_ADMIN_PASSWORD:-changeme}
-      # ── Cible Hermes ──
-      # Si Hermes tourne en Docker sur le même hôte avec le compose officiel,
-      # utilisez le nom du service ; sinon 127.0.0.1 si host network, ou
-      # host.docker.internal sous Docker Desktop.
+      - TEAM_ADMIN_PASSWORD=${TEAM_ADMIN_PASSWORD:?Mettez TEAM_ADMIN_PASSWORD dans .env}
+      # ── Cible Hermes (Coolify / Traefik / HTTPS) ──
+      # Option 1 (recommandé Coolify) : URL publique ou interne du WebUI Hermes
+      - TEAM_UPSTREAM_URL=${TEAM_UPSTREAM_URL:-}
+      # Option 2 : host:port direct (réseau Docker partagé ou host network)
       - TEAM_UPSTREAM_HOST=${TEAM_UPSTREAM_HOST:-host.docker.internal}
       - TEAM_UPSTREAM_PORT=${TEAM_UPSTREAM_PORT:-8787}
     extra_hosts:
