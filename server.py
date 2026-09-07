@@ -394,7 +394,8 @@ class TeamHandler(BaseHTTPRequestHandler):
         if not u:
             return None
         return {"username": info["username"], "profile": u.get("profile", info["profile"]),
-                "display_name": u.get("display_name", info["username"])}
+                "display_name": u.get("display_name", info["username"]),
+                "is_admin": bool(u.get("is_admin"))}
 
     def _set_cookie(self, name: str, value: str, max_age: int, clear: bool = False):
         self.send_header("Set-Cookie", f"{name}={value if not clear else ''}; Path=/; Max-Age={0 if clear else max_age}; HttpOnly; SameSite=Lax")
@@ -439,6 +440,10 @@ class TeamHandler(BaseHTTPRequestHandler):
                     return
                 if path == "/api/team/me":
                     self._json({"ok": True, **emp})
+                    return
+                # Administration — réservée à l'admin
+                if path.startswith("/api/team/admin/"):
+                    self._handle_admin_api(path, emp, None)
                     return
                 # self.path inclut la query string (?session_id=…) nécessaire au proxy
                 self._proxy_api(self.path, emp)
@@ -522,6 +527,11 @@ class TeamHandler(BaseHTTPRequestHandler):
                 self._json({"ok": True})
                 return
 
+            # Administration — réservée à l'admin
+            if path.startswith("/api/team/admin/"):
+                self._handle_admin_api(path, emp, body)
+                return
+
             self._proxy_api(path, emp, body=body)
         except BrokenPipeError:
             pass
@@ -531,6 +541,94 @@ class TeamHandler(BaseHTTPRequestHandler):
                 self._json({"error": "internal error"}, 500)
             except Exception:
                 pass
+
+    # -- administration (endpoints /api/team/admin/*, admin uniquement) --------
+    def _handle_admin_api(self, path: str, emp: dict, body: dict):
+        users = _load_users()
+        me = users.get(emp["username"], {})
+        if not me.get("is_admin"):
+            self._json({"error": "forbidden — admin uniquement"}, 403)
+            return
+
+        import re as _re
+
+        if path == "/api/team/admin/users" and body is None:
+            listing = [
+                {"username": u, "profile": v.get("profile"), "display_name": v.get("display_name", u),
+                 "is_admin": bool(v.get("is_admin"))}
+                for u, v in sorted(users.items())
+            ]
+            self._json({"users": listing})
+            return
+
+        if path == "/api/team/admin/users/add":
+            username = str(body.get("username", "")).strip()
+            password = str(body.get("password", ""))
+            profile = str(body.get("profile", "")).strip().lower() or username.lower()
+            display = str(body.get("display_name", "")).strip() or username
+            if not _re.match(r"^[a-zA-Z0-9_.-]{2,32}$", username):
+                self._json({"error": "identifiant invalide (2-32 caractères : lettres, chiffres, . _ -)"}, 400)
+                return
+            if len(password) < 6:
+                self._json({"error": "mot de passe trop court (6 caractères minimum)"}, 400)
+                return
+            if not _re.match(r"^[a-z0-9][a-z0-9_-]{0,63}$", profile):
+                self._json({"error": "nom de profil invalide (minuscules, chiffres, - _)"}, 400)
+                return
+            if username in users:
+                self._json({"error": f"l'identifiant '{username}' existe déjà"}, 400)
+                return
+            if not ensure_profile(profile):
+                self._json({"error": f"impossible de créer le profil Hermes '{profile}' (WebUI injoignable ?)"}, 502)
+                return
+            users[username] = {
+                "password_hash": _hash_password(password),
+                "profile": profile,
+                "display_name": display,
+            }
+            _save_users(users)
+            logger.info("Admin %r created employee %r (profile=%r)", emp["username"], username, profile)
+            self._json({"ok": True, "username": username, "profile": profile, "display_name": display})
+            return
+
+        if path == "/api/team/admin/users/passwd":
+            username = str(body.get("username", "")).strip()
+            password = str(body.get("password", ""))
+            if username not in users:
+                self._json({"error": "identifiant introuvable"}, 404)
+                return
+            if len(password) < 6:
+                self._json({"error": "mot de passe trop court (6 caractères minimum)"}, 400)
+                return
+            users[username]["password_hash"] = _hash_password(password)
+            _save_users(users)
+            # Révoque ses sessions de connexion existantes
+            with _LOGIN_LOCK:
+                sessions = _load_login_sessions()
+                kept = {t: v for t, v in sessions.items() if v.get("username") != username}
+                _save_login_sessions(kept)
+            self._json({"ok": True})
+            return
+
+        if path == "/api/team/admin/users/remove":
+            username = str(body.get("username", "")).strip()
+            if username not in users:
+                self._json({"error": "identifiant introuvable"}, 404)
+                return
+            if users[username].get("is_admin"):
+                self._json({"error": "impossible de supprimer le compte admin"}, 400)
+                return
+            users.pop(username)
+            _save_users(users)
+            with _LOGIN_LOCK:
+                sessions = _load_login_sessions()
+                kept = {t: v for t, v in sessions.items() if v.get("username") != username}
+                _save_login_sessions(kept)
+            logger.info("Admin %r removed employee %r", emp["username"], username)
+            self._json({"ok": True})
+            return
+
+        self._json({"error": "route admin inconnue"}, 404)
 
     # -- proxy API ------------------------------------------------------------
     def _proxy_api(self, path_with_qs: str, emp: dict, body: dict | None = None):
@@ -740,6 +838,7 @@ def main():
                 "password_hash": _hash_password(default_pw),
                 "profile": "default",
                 "display_name": "Administrateur",
+                "is_admin": True,
             }
         })
         logger.info("No users found — created default admin (password from TEAM_ADMIN_PASSWORD env or 'changeme')")
