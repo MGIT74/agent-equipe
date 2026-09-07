@@ -850,6 +850,7 @@ def main():
     if env_admin_pw:
         users = _load_users()
         admin = users.get("admin")
+        admin_changed = False
         if admin is None:
             users["admin"] = {
                 "password_hash": _hash_password(env_admin_pw),
@@ -857,12 +858,22 @@ def main():
                 "display_name": "Administrateur",
                 "is_admin": True,
             }
-            _save_users(users)
+            admin_changed = True
             logger.info("TEAM_ADMIN_PASSWORD set — admin account created")
-        elif not hmac.compare_digest(admin["password_hash"], _hash_password(env_admin_pw)):
-            admin["password_hash"] = _hash_password(env_admin_pw)
+        else:
+            if not hmac.compare_digest(admin["password_hash"], _hash_password(env_admin_pw)):
+                admin["password_hash"] = _hash_password(env_admin_pw)
+                admin_changed = True
+                logger.info("TEAM_ADMIN_PASSWORD set — admin password resynchronized")
+            # Le compte admin doit TOUJOURS garder son flag is_admin — les
+            # volumes préexistants (ou une resync partielle) peuvent l'avoir
+            # perdu, ce qui verrouille l'accès aux endpoints d'administration.
+            if not admin.get("is_admin"):
+                admin["is_admin"] = True
+                admin_changed = True
+                logger.info("Admin flag restored (is_admin=true)")
+        if admin_changed:
             _save_users(users)
-            logger.info("TEAM_ADMIN_PASSWORD set — admin password resynchronized")
 
     server = QuietHTTPServer((HOST, PORT), TeamHandler)
     logger.info("Hermes Team App listening on http://%s:%d (upstream %s:%d)", HOST, PORT, UPSTREAM_HOST, UPSTREAM_PORT)
