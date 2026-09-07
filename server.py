@@ -843,6 +843,27 @@ def main():
         })
         logger.info("No users found — created default admin (password from TEAM_ADMIN_PASSWORD env or 'changeme')")
 
+    # Resynchronisation admin : si TEAM_ADMIN_PASSWORD est définie au démarrage,
+    # le mot de passe du compte admin est mis à jour (utile après perte du mot
+    # de passe, ou premier déploiement avec comptes préexistants dans le volume).
+    env_admin_pw = os.getenv("TEAM_ADMIN_PASSWORD", "").strip()
+    if env_admin_pw:
+        users = _load_users()
+        admin = users.get("admin")
+        if admin is None:
+            users["admin"] = {
+                "password_hash": _hash_password(env_admin_pw),
+                "profile": "default",
+                "display_name": "Administrateur",
+                "is_admin": True,
+            }
+            _save_users(users)
+            logger.info("TEAM_ADMIN_PASSWORD set — admin account created")
+        elif not hmac.compare_digest(admin["password_hash"], _hash_password(env_admin_pw)):
+            admin["password_hash"] = _hash_password(env_admin_pw)
+            _save_users(users)
+            logger.info("TEAM_ADMIN_PASSWORD set — admin password resynchronized")
+
     server = QuietHTTPServer((HOST, PORT), TeamHandler)
     logger.info("Hermes Team App listening on http://%s:%d (upstream %s:%d)", HOST, PORT, UPSTREAM_HOST, UPSTREAM_PORT)
     print(f"\n  Team App: http://0.0.0.0:{PORT}")
